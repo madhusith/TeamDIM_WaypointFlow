@@ -177,7 +177,7 @@ export default function WorkflowApp() {
               <Truck className="h-6 w-6" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">Waypoint<span className="text-blue-600">Flow</span></h1>
-            <p className="mt-1 text-sm text-slate-500">Hackathon demo · one account per role</p>
+            <p className="mt-1 text-sm text-slate-500">Demo Access · Select Your Role</p>
           </div>
           <form onSubmit={login} className="space-y-4">
             <label className="block text-sm font-semibold text-slate-700">
