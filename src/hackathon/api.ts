@@ -105,8 +105,12 @@ export type Snapshot = {
   delivery_events: DeliveryEvent[];
 };
 
+const RAW_API_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE = RAW_API_URL.endsWith('/') ? RAW_API_URL.slice(0, -1) : RAW_API_URL;
+
 export async function api<T>(path: string, token?: string, payload?: unknown): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+  const url = API_BASE ? `${API_BASE}/api${path}` : `/api${path}`;
+  const response = await fetch(url, {
     method: payload === undefined ? 'GET' : 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
