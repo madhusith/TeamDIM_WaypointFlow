@@ -1,76 +1,204 @@
 # WaypointFlow
 
-TeamDIM's Hackathon implementation of the Waypoint Group delivery workflow.
+TeamDIM's Hackathon implementation of the Waypoint Group delivery logistics workflow.
 
-## Current milestone
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-blue?style=for-the-badge&logo=vercel)](https://waypoint-flow.vercel.app)
+[![Backend API](https://img.shields.io/badge/API-Railway-purple?style=for-the-badge&logo=railway)](https://teamdimwaypointflow-production.up.railway.app/api/health)
+[![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-336791?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
 
-The Hackathon UI now signs in to one of four seeded accounts and uses a shared FastAPI/PostgreSQL workflow. It supports store orders, dispatcher allocation and deferral, loader shortfalls, driver delivery records with offline replay, and store receipt confirmation. The original Designathon pages remain in `src/pages/` for reference, while the active workflow is in `src/hackathon/`.
+---
 
-The full Docker stack was built and started on October 3. A four-role walkthrough passed through its Nginx/API path on port 8080 against PostgreSQL, and frontend production build, API import, planner unit checks, Python compilation, and Compose configuration parsing passed. Public deployment and a fresh-install walkthrough remain to be verified before submission.
+## 🚀 Live Public Deployment
 
-## Start the complete stack
+- **Frontend Web UI**: [https://waypoint-flow.vercel.app](https://waypoint-flow.vercel.app)
+- **Backend API**: [https://teamdimwaypointflow-production.up.railway.app](https://teamdimwaypointflow-production.up.railway.app)
+- **API Health Check**: [https://teamdimwaypointflow-production.up.railway.app/api/health](https://teamdimwaypointflow-production.up.railway.app/api/health)
+- **Interactive OpenAPI Docs**: [https://teamdimwaypointflow-production.up.railway.app/api/docs](https://teamdimwaypointflow-production.up.railway.app/api/docs)
 
-Install Docker Desktop or Docker Engine with Compose, then run from the repository root:
+---
+
+## 🔑 Demo Access (Four Seeded Role Accounts)
+
+The demo environment runs against a shared interactive PostgreSQL instance pre-seeded with synthetic reference data (outlets, vehicles, districts, operating calendar) and 134 demo orders for **January 16, 2026**.
+
+| Role | Username | Password | Key Responsibilities |
+| :--- | :--- | :--- | :--- |
+| **Dispatcher** | `dispatcher` | `WaypointDemo2026!` | Trip planning, constraint validation, vehicle assignment, deferral logging |
+| **Loader** | `loader` | `WaypointDemo2026!` | Reverse stop order loading lists, checklist verification, shortfall flagging |
+| **Driver** | `driver` | `WaypointDemo2026!` | Route navigation, offline delivery mode, receiver signature & proof photo capture |
+| **Store Manager** | `store` | `WaypointDemo2026!` | Order creation (`OUT001`), delivery ETA tracking, receipt confirmation & issues |
+
+---
+
+## 🧭 Numbered Judge Walkthrough
+
+Follow this step-by-step walkthrough on the [Live Web UI](https://waypoint-flow.vercel.app) or locally:
+
+1. **Store Manager: Place Orders**
+   - Sign in as `store` (password: `WaypointDemo2026!`).
+   - Place **two** orders for `OUT001`:
+     - Order 1: `10` units ambient at `100` kg / `0.5` m³.
+     - Order 2: `8` units chilled at `80` kg / `0.4` m³.
+   - Note the generated `ORD-DEMO-...` order IDs.
+
+2. **Dispatcher: Validate, Plan & Defer**
+   - Click **Switch account** and sign in as `dispatcher`.
+   - Search for the first new order in the queue.
+   - Create a new trip with refrigerated van `VEH035` departing at **04:00**. The planning engine validates vehicle compatibility, capacity, operating calendar, and window timing, scheduling arrival at 05:00.
+   - Search for the second order, select **Defer with reason**, enter a reason, and click **Record Deferral**.
+   - Under **Trips and progress**, click **Publish trip** on the draft trip to release it to loading.
+
+3. **Store Manager: Verification**
+   - Switch account back to `store`.
+   - Verify that the first order shows its expected arrival time (`05:00`) and the second order displays the exact deferral reason recorded by dispatch.
+
+4. **Loader: Loading Bay Checklist & Shortfall Reporting**
+   - Switch account to `loader`.
+   - Select the published trip. Stops are presented in **reverse delivery order** for optimal dock loading.
+   - Flag any shortfall or check off each order line, then click **Complete loading**.
+
+5. **Driver: Offline Delivery & Proof of Delivery (PoD)**
+   - Switch account to `driver`.
+   - Click **Depart depot**.
+   - Toggle **Simulate offline** to demonstrate offline capability.
+   - Click **Mark Arrived** and **Record Delivery**:
+     - Enter receiver name/signature.
+     - Add delivery notes.
+     - *(Optional)* Attach or capture a proof photo.
+   - Click **Save proof of delivery** &mdash; the update is queued securely in browser storage.
+   - Toggle offline mode off &mdash; pending events synchronize automatically to PostgreSQL.
+   - The stop card dynamically displays the recorded receiver name, notes, and proof photo preview.
+
+6. **Store Manager: Receipt Confirmation**
+   - Switch back to `store`.
+   - Open the delivered order, enter units received, note any damage/shortage if desired, and click **Confirm receipt**.
+
+7. **Dispatcher: Audit Exceptions**
+   - Switch to `dispatcher` to audit completed trips, loading shortfalls, and receipt issues under **Exceptions & Issues**.
+
+---
+
+## 🛠️ Architecture & Tech Stack
+
+```text
+┌─────────────────────────────────┐
+│        Vercel (Frontend)        │
+│  React 19 • Vite • TailwindCSS  │
+│    Responsive Mobile/Desktop    │
+└────────────────┬────────────────┘
+                 │ HTTPS / JSON API
+                 ▼
+┌─────────────────────────────────┐
+│        Railway (Backend)        │
+│    FastAPI (Python) • Uvicorn   │
+│   Planning Engine & Auth System │
+└────────────────┬────────────────┘
+                 │ TCP / SQL
+                 ▼
+┌─────────────────────────────────┐
+│       Railway PostgreSQL        │
+│  Reference Tables & Seed Data   │
+│ Delivery Events & Audit History │
+└─────────────────────────────────┘
+```
+
+- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Lucide Icons, Zustand, responsive UI optimized for desktop and mobile.
+- **Backend**: FastAPI, Python 3.12, Psycopg 3, Pydantic, Uvicorn.
+- **Database**: PostgreSQL 16 with relational schema, foreign key integrity, and transactional updates.
+- **Hosting**:
+  - Frontend: Vercel (Edge CDN, SPA routing via `vercel.json`)
+  - Backend & Database: Railway (Containerized Dockerfile via `railway.json` + Managed PostgreSQL)
+  - Local: Docker Compose (`docker-compose.yml`)
+
+---
+
+## 💻 Running Locally
+
+### Option 1: Docker Compose (Complete Stack)
+
+Install Docker Desktop and run from the repository root:
 
 ```sh
 docker compose up
 ```
 
-The first run builds the web and API images, starts PostgreSQL, creates the schema, and imports the bundled synthetic seed data. Subsequent runs keep database state in the `postgres_data` volume and seed only missing records.
+The stack automatically builds the frontend and API containers, initializes PostgreSQL, applies migrations (`schema.sql`), and seeds initial data (`seed.py`).
 
-- Web UI: <http://localhost:8080>
-- API health: <http://localhost:8080/api/health>
-- API documentation: <http://localhost:8080/api/docs>
+- Frontend: `http://localhost:8080`
+- API Health: `http://localhost:8080/api/health`
+- API Documentation: `http://localhost:8080/api/docs`
 
-Copy `.env.example` to `.env` to override the local demo defaults. Set strong `POSTGRES_PASSWORD`, `APP_SECRET`, and `DEMO_PASSWORD` before public deployment. The defaults exist so a fresh `docker compose up` works without configuration.
+---
 
-### Four seeded demo accounts
+### Option 2: Local Development Server
 
-| Username | Role | Demo password |
-| --- | --- | --- |
-| `dispatcher` | Dispatcher | `WaypointDemo2026!` |
-| `loader` | Loader | `WaypointDemo2026!` |
-| `driver` | Driver | `WaypointDemo2026!` |
-| `store` | Store manager for `OUT001` | `WaypointDemo2026!` |
-
-The web app uses `POST /api/login`. The same endpoint can be checked directly:
-
+#### Backend:
 ```sh
-curl -X POST http://localhost:8080/api/login -H "Content-Type: application/json" -d '{"username":"dispatcher","password":"WaypointDemo2026!"}'
+cd server
+python -m venv .venv
+source .venv/bin/activate   # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+export DATABASE_URL="postgresql://user:password@localhost:5432/waypointflow"
+python seed.py
+uvicorn main:app --reload --port 8000
 ```
 
-Use the returned bearer token for `GET /api/me`, `GET /api/reference/summary`, and `GET /api/orders`. Store managers see only their outlet's orders on the orders endpoint.
-
-## Numbered judge walkthrough
-
-Use the fixed **January 16, 2026** demo day. This is a simulation using the organizer's historical operating calendar; the normal 16:00 Sri Lanka cutoff applies to non-demo orders. The steps below assume a fresh database. Smoke runs add orders and occupy demo vans; on a reused database, inspect the completed trips already shown in the dashboard or start with a fresh test volume.
-
-1. Run `docker compose up` and open <http://localhost:8080>. Sign in as `store`. Place **two** orders for `OUT001`, for example 10 ambient units at 100 kg / 0.5 m³ and 8 chilled units at 80 kg / 0.4 m³. Note their generated `ORD-DEMO-...` IDs.
-2. Switch account to `dispatcher`. Search for the first new order. Create a trip with refrigerated van `VEH035` departing at **04:00**. The planner should accept the van-only outlet and schedule arrival at 05:00. Search for the second order and defer it with a reason. Publish the draft trip.
-3. Switch to `store` and confirm that the second order displays its deferral reason and the first displays its expected arrival.
-4. Switch to `loader`. Open the published trip. Optionally flag a shortfall on the first order, then check its line or record the shortfall and complete loading.
-5. Switch to `driver`. Depart the loaded trip. Turn on **Simulate offline**, record arrival and delivery with a receiver name and optional proof photo. Turn the offline switch off and wait for the pending count to return to zero.
-6. Switch to `store`. Open the delivered first order, enter units received, add an issue if needed, and confirm receipt.
-7. Switch to `dispatcher` to inspect the completed trip and any loading or receipt exceptions.
-
-The API rejects incompatible vehicles, weight or volume overload, missed windows, non-operating dates, overlapping or excess trips, and weekly fuel overuse. Try assigning the chilled order to an ambient van to see a validation error.
-
-## Seed data
-
-`server/seed_data/` contains the supplied synthetic outlet, vehicle, calendar, district travel, and service allowance tables. `demo_orders.csv` contains the 134 orders for **January 16, 2026**, an operating day covering Fresh, Style, and Tech with historical deferred orders. All orders start as `confirmed` in the interactive database; `historical_outcome` is retained only as source context. The dataset calendar ends in June 2026, so the judge demo uses a fixed historical date.
-
-To regenerate these files from the organizer's ZIP:
-
+#### Frontend:
 ```sh
-python server/prepare_data.py path/to/data.zip
+npm ci
+npm run dev
 ```
 
-The original 92,307-row training file and Datathon test files are deliberately excluded from app startup.
+Visit `http://localhost:5173` (Vite proxies `/api` calls to `http://localhost:8000`).
 
-## Significant implementation departures and remaining work
+---
 
-The cloned Designathon frontend switched roles inside one browser and stored mock data locally. The active Hackathon view uses account sign-in and a shared API; its role flows are consolidated into four role dashboards. The Designathon submission was a YouTube video, and no export or video URL is available in this workspace. The cloned frontend is the visual reference; review the submitted video against these screens before the deadline if the URL becomes available.
+## ⚙️ Environment Variables
 
-Loader checklist ticks currently live only in the active browser session; completion and shortage reports are stored in PostgreSQL. The driver offline queue is kept in browser local storage and replays idempotent events on reconnect. The full Docker stack was built and started on October 3; a second four-role smoke walkthrough passed through Nginx at port 8080 against the persistent database. A public deployment, final AI disclosure, and demo video remain to be completed.
+### Frontend (`.env` or Vercel Settings)
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `VITE_API_URL` | Backend URL for production | `https://teamdimwaypointflow-production.up.railway.app` |
 
-See [architecture](docs/architecture.md), [data model](docs/data-model.md), and the [working AI disclosure](docs/ai-disclosure.md).
+### Backend (`.env` or Railway Settings)
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | PostgreSQL connection string | *Provided by Railway* |
+| `APP_SECRET` | Secret key for bearer token generation | `WaypointSecret2026!` |
+| `DEMO_PASSWORD` | Password for seeded demo accounts | `WaypointDemo2026!` |
+| `CORS_ORIGINS` | Allowed origins for cross-origin requests | `*` (or Vercel URL) |
+| `PORT` | Service port | `8000` |
+
+---
+
+## 📁 Repository Structure
+
+```text
+├── Dockerfile.web             # Multi-stage Docker build for frontend with Nginx
+├── docker-compose.yml         # Local orchestration for Web, API, and DB
+├── railway.json               # Railway deployment configuration
+├── vercel.json                # Vercel SPA client rewrite configuration
+├── package.json               # Frontend dependencies and build scripts
+├── src/
+│   ├── hackathon/             # Active interactive Hackathon application
+│   │   ├── WorkflowApp.tsx    # Responsive role dashboards (Dispatcher, Loader, Driver, Store)
+│   │   └── api.ts             # API client with token auth and base URL support
+│   └── pages/                 # Initial visual design reference pages
+├── server/
+│   ├── Dockerfile             # Python 3.12 container configuration
+│   ├── main.py                # FastAPI routes, auth, validation, and stop events
+│   ├── planning.py            # Vehicle capability, window, capacity & route rules
+│   ├── schema.sql             # Relational database schema
+│   ├── seed.py                # Database population with demo seed data
+│   ├── seed_data/             # Synthetic reference tables & demo day orders
+│   └── test_planning.py       # Unit tests for planning & constraint rules
+└── docs/                      # Architecture, data model, and AI disclosure notes
+```
+
+---
+
+## 📄 Documentation
+
+- [Architecture Design](docs/architecture.md)
+- [Data Model & Schema](docs/data-model.md)
+- [AI Disclosure](docs/ai-disclosure.md)
