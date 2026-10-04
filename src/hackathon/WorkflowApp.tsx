@@ -707,56 +707,107 @@ function Driver({ data, busy, offline, demoOffline, setDemoOffline, queue, recor
               )}
 
               <div className="space-y-3">
-                {tripStops(data, trip.id).map(stop => (
-                  <div key={stop.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <strong className="block text-sm sm:text-base font-semibold text-slate-900">Stop {stop.sequence + 1} · {stop.outlet_id}</strong>
-                        <p className="mt-0.5 text-xs sm:text-sm text-slate-500">
-                          ETA <span className="font-semibold text-slate-700">{when(stop.planned_arrival_time)}</span> · {stop.order_ids.join(', ')}
-                        </p>
-                      </div>
-                      <Badge value={effective(stop)} />
-                    </div>
+                {tripStops(data, trip.id).map(stop => {
+                  const deliveryEvent = data.delivery_events?.find(e => e.stop_id === stop.id && e.event_type === 'delivered');
+                  const queuedEvent = queue.find(q => q.stopId === stop.id && q.payload.event_type === 'delivered');
+                  const recName = (deliveryEvent?.payload?.receiver_name || queuedEvent?.payload?.receiver_name) as string | undefined;
+                  const recNotes = (deliveryEvent?.payload?.notes || queuedEvent?.payload?.notes) as string | undefined;
+                  const recPhoto = (deliveryEvent?.payload?.proof_photo_data || queuedEvent?.payload?.proof_photo_data) as string | undefined;
+                  const isDelivered = effective(stop).startsWith('delivered') || stop.status === 'delivered';
 
-                    {trip.status === 'en_route' && !effective(stop).startsWith('delivered') && (
-                      <div className="mt-3.5 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                        <button className={`${quiet} py-2 px-3 text-xs sm:text-sm`} onClick={() => void recordStop(stop.id, 'arrived')}>
-                          Mark Arrived
-                        </button>
-                        <button className={`${button} py-2 px-3 text-xs sm:text-sm`} onClick={() => { setActiveStop(stop.id); setReceiver(''); setNotes(''); setPhoto(''); }}>
-                          Record Delivery
-                        </button>
-                        <button className={`${quiet} py-2 px-3 text-xs sm:text-sm !text-rose-700 hover:!bg-rose-50`} onClick={() => { const reason = window.prompt('Describe the problem:'); if (reason) void recordStop(stop.id, 'problem', '', reason); }}>
-                          Report Problem
-                        </button>
-                      </div>
-                    )}
-
-                    {activeStop === stop.id && (
-                      <form onSubmit={async e => { e.preventDefault(); if (await recordStop(stop.id, 'delivered', receiver, notes, photo)) setActiveStop(null); }} className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">Proof of Delivery</h4>
-                        <label className="block text-xs font-semibold text-slate-700">
-                          Receiver Name / Signature
-                          <input className={`${input} mt-1`} required value={receiver} onChange={e => setReceiver(e.target.value)} placeholder="e.g. John Doe (Store Manager)" />
-                        </label>
-                        <label className="block text-xs font-semibold text-slate-700">
-                          Notes (Optional)
-                          <input className={`${input} mt-1`} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Left at rear receiving bay" />
-                        </label>
-                        <label className="block text-xs font-semibold text-slate-700">
-                          Proof photo (optional)
-                          <input className="mt-1.5 block w-full text-xs text-slate-600" type="file" accept="image/*" capture="environment" onChange={e => choosePhoto(e.target.files?.[0])} />
-                        </label>
-                        {photo && <p className="text-xs font-medium text-emerald-700">✓ Photo attached and ready to save.</p>}
-                        <div className="flex gap-2 pt-1">
-                          <button className={`${button} flex-1`}>Save Proof of Delivery</button>
-                          <button type="button" className={quiet} onClick={() => setActiveStop(null)}>Cancel</button>
+                  return (
+                    <div key={stop.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <strong className="block text-sm sm:text-base font-semibold text-slate-900">Stop {stop.sequence + 1} · {stop.outlet_id}</strong>
+                          <p className="mt-0.5 text-xs sm:text-sm text-slate-500">
+                            ETA <span className="font-semibold text-slate-700">{when(stop.planned_arrival_time)}</span> · {stop.order_ids.join(', ')}
+                          </p>
                         </div>
-                      </form>
-                    )}
-                  </div>
-                ))}
+                        <Badge value={effective(stop)} />
+                      </div>
+
+                      {/* Display recorded Proof of Delivery for delivered stops */}
+                      {isDelivered && (
+                        <div className="mt-3.5 space-y-2.5 rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-3.5 text-xs sm:text-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                              <span>Proof of Delivery Recorded</span>
+                            </div>
+                            {queuedEvent && (
+                              <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                Pending Sync
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="space-y-1 text-slate-700">
+                            <p>
+                              <span className="font-semibold text-slate-900">Receiver Name:</span> {recName || 'Recorded'}
+                            </p>
+                            {recNotes && (
+                              <p>
+                                <span className="font-semibold text-slate-900">Notes:</span> {recNotes}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="pt-2 border-t border-emerald-200/60">
+                            <span className="block font-semibold text-slate-900 mb-1.5">Proof Photo:</span>
+                            {recPhoto ? (
+                              <img src={recPhoto} alt="Proof of delivery" className="h-40 w-auto rounded-lg border border-emerald-200 object-cover shadow-xs" />
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-slate-400 text-xs italic">
+                                <Camera className="h-3.5 w-3.5 text-slate-300" />
+                                <span>No photo attached</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action buttons for active undelivered stops */}
+                      {!isDelivered && (trip.status === 'en_route' || trip.status === 'loaded') && (
+                        <div className="mt-3.5 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                          <button className={`${quiet} py-2 px-3 text-xs sm:text-sm`} onClick={() => void recordStop(stop.id, 'arrived')}>
+                            Mark Arrived
+                          </button>
+                          <button className={`${button} py-2 px-3 text-xs sm:text-sm`} onClick={() => { setActiveStop(activeStop === stop.id ? null : stop.id); setReceiver(''); setNotes(''); setPhoto(''); }}>
+                            Record Delivery
+                          </button>
+                          <button className={`${quiet} py-2 px-3 text-xs sm:text-sm !text-rose-700 hover:!bg-rose-50`} onClick={() => { const reason = window.prompt('Describe the problem:'); if (reason) void recordStop(stop.id, 'problem', '', reason); }}>
+                            Report Problem
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Delivery Form with Receiver Name and Optional Photo */}
+                      {activeStop === stop.id && (
+                        <form onSubmit={async e => { e.preventDefault(); if (await recordStop(stop.id, 'delivered', receiver, notes, photo)) setActiveStop(null); }} className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">Proof of Delivery</h4>
+                          <label className="block text-xs font-semibold text-slate-700">
+                            Receiver Name / Signature
+                            <input className={`${input} mt-1`} required value={receiver} onChange={e => setReceiver(e.target.value)} placeholder="e.g. John Doe (Store Manager)" />
+                          </label>
+                          <label className="block text-xs font-semibold text-slate-700">
+                            Notes (Optional)
+                            <input className={`${input} mt-1`} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Left at rear receiving bay" />
+                          </label>
+                          <label className="block text-xs font-semibold text-slate-700">
+                            Proof photo (optional)
+                            <input className="mt-1.5 block w-full text-xs text-slate-600" type="file" accept="image/*" capture="environment" onChange={e => choosePhoto(e.target.files?.[0])} />
+                          </label>
+                          {photo && <p className="text-xs font-medium text-emerald-700">✓ Photo attached and ready to save.</p>}
+                          <div className="flex gap-2 pt-1">
+                            <button className={`${button} flex-1`}>Save Proof of Delivery</button>
+                            <button type="button" className={quiet} onClick={() => setActiveStop(null)}>Cancel</button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </>
           ) : (
