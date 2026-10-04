@@ -1,0 +1,9 @@
+.git
+node_modules
+.npm-cache
+dist
+.env
+__pycache__
+*.pyc
+server/.deps
+*.zip
